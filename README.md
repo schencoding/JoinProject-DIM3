@@ -1,6 +1,6 @@
 # Density-optimized Intersection-free Mapping and Matrix Multiplication for Join-Project Operations
 
-This is the source code of the upcoming paper `'Density-optimized Intersection-free Mapping and Matrix Multiplication for Join-Project Operations'`, which has been accpeted in PVLDB22.
+These are the source codes of the upcoming paper `'Density-optimized Intersection-free Mapping and Matrix Multiplication for Join-Project Operations'`, which has been accpeted in PVLDB'22.
 
 This repo contains implementations of the ideas and experiments discussed in the paper: 
 - Join-Project Algorithm `DIM3`.
