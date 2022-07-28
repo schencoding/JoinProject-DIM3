@@ -2,14 +2,7 @@
 
 These are the source codes of the upcoming paper `'Density-optimized Intersection-free Mapping and Matrix Multiplication for Join-Project Operations'`, which has been accpeted in PVLDB'22.
 
-This repo contains implementations of the ideas and experiments discussed in the paper: 
-- Join-Project Algorithm `DIM3`.
-- `DIM3` with partial result caching. [Coming soon]
-- `DIM3` for Join-Aggregate operation. [Coming soon]
-- `DIM3` with DP for line join projection. [Coming soon]
-- ...
-
-**This repo is under construction. We are now working on cleaning up and commenting the codes...**
+This repo contains implementations of the Join-Project Algorithm `DIM3` in the paper.
 
 <!-- If you use this work, please cite our paper as follows
 ```
@@ -23,7 +16,7 @@ This repo contains implementations of the ideas and experiments discussed in the
 ``` -->
 
 ## Building
-`g++` is all you need. Besides, your machine needs to support `AVX`.
+`g++` is all you need. Besides, your computer needs to support `AVX`.
 ```
 make
 ```
