@@ -10,7 +10,7 @@
 #include "Include/L+S_mapper.hpp"
 #include "Include/myBitVector.hpp"
 
-#include "machine_parameters.hpp"
+#include "server_parameters.hpp"
 
 using namespace std;
 

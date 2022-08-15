@@ -32,8 +32,6 @@ const double Para_Sz_mem_rand_read_write_3L3 = 7.911922; // 1e-9 seconds
 const double Para_Sz_mem_rand_read_10L3 = 7.198486; // 1e-9 seconds
 const double Para_Sz_mem_rand_read_write_10L3 = 11.245022; // 1e-9 seconds
 
-const double Para_Join_cost = 4.675990; // 1e-9 seconds
-
 static double cal_mem_rand_read_cost(int array_size) {
     unsigned int x1 = 1000;
     unsigned int x2 = 2 * __L2cache_size_by_int;
