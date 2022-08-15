@@ -1,5 +1,8 @@
 #pragma once
 
+
+//=========↓↓↓============
+// copy your server parameters here!!
 const unsigned int __L1cache_size = 32768;
 const unsigned int __L2cache_size = 262144;
 const unsigned int __L3cache_size = 12582912; 
@@ -31,6 +34,7 @@ const double Para_Sz_mem_rand_read_3L3 = 5.417254; // 1e-9 seconds
 const double Para_Sz_mem_rand_read_write_3L3 = 7.911922; // 1e-9 seconds
 const double Para_Sz_mem_rand_read_10L3 = 7.198486; // 1e-9 seconds
 const double Para_Sz_mem_rand_read_write_10L3 = 11.245022; // 1e-9 seconds
+//=========↑↑↑============
 
 static double cal_mem_rand_read_cost(int array_size) {
     unsigned int x1 = 1000;
