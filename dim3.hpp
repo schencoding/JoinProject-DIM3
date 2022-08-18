@@ -800,7 +800,7 @@ public:
 
     }
 
-private:
+protected:
     static void divide_R(const myvector<pair<int, int>> V, const int nx, CSR<>& R_all) {
         int nV = V.size();
         R_all.JR = (int*)malloc((nx + 1) * sizeof(int));
