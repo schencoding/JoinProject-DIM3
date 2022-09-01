@@ -4,16 +4,24 @@ These are the source codes of the PVLDB'22 paper `'Density-optimized Intersectio
 
 This repo contains implementations of the Join-Project Algorithm `DIM3` and its parallel version in the paper.
 
-<!-- If you use this work, please cite our paper as follows
+If you use this work, please cite our paper as follows
 ```
-@inproceedings{zhou2021spitfire,
-  title={Spitfire: A Three-Tier Buffer Manager for Volatile and Non-Volatile Memory},
-  author={Zhou, Xinjing and Arulraj, Joy and Pavlo, Andrew and Cohen, David},
-  booktitle={Proceedings of the 2021 International Conference on Management of Data},
-  pages={2195--2207},
-  year={2021}
+@article{DBLP:journals/pvldb/HuangC22,
+  author    = {Zichun Huang and
+               Shimin Chen},
+  title     = {Density-optimized Intersection-free Mapping and Matrix Multiplication
+               for Join-Project Operations},
+  journal   = {Proc. {VLDB} Endow.},
+  volume    = {15},
+  number    = {10},
+  pages     = {2244--2256},
+  year      = {2022},
+  url       = {https://www.vldb.org/pvldb/vol15/p2244-chen.pdf},
+  timestamp = {Tue, 30 Aug 2022 09:02:56 +0200},
+  biburl    = {https://dblp.org/rec/journals/pvldb/HuangC22.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
 }
-``` -->
+```
 
 ## Building
 `g++` is all you need. Besides, your server needs to support `AVX`. For paralle version, you need `openmp`.
