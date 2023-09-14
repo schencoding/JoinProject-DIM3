@@ -1,4 +1,4 @@
-#include"dim3_parallel.hpp"
+#include"dim3.hpp"
 
 // Input table R(x,y), S(z,y)
 myvector<pair<int, int>> R, S;
@@ -13,7 +13,9 @@ int main(int argc, char* argv[]) {
 
     chrono::high_resolution_clock::time_point startTime = chrono::high_resolution_clock::now();
 
-    DIM3_parallel<int, int, int, myHasher, myHasher, myHasher, myHasher, uint32_t>::doJoinProject_parallel(R, S, result);
+    LL OUT_J_hat = EstimateJoinCardinality<int, int, int, myHasher>::estimate(R, S);
+    Radix_hash_join_and_project<int, int, int, myHasher, myHasher> classical_join_project;
+    classical_join_project.dojoinproject(R, S, OUT_J_hat, result);
 
     chrono::high_resolution_clock::time_point endTime = chrono::high_resolution_clock::now();
     

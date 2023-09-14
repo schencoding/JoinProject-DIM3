@@ -1005,3 +1005,89 @@ protected:
     }
 };
 
+void baseline_mapping(const myvector<pair<int, int>> R, const myvector<pair<int, int>> S,
+    ID2VALUE<int, int>& ID2V,
+    myvector<pair<int, int>>& Rout,
+    myvector<pair<int, int>>& Sout,
+    int& xmax, int& ymax, int& zmax) {
+
+    ID2V.x = (int*)malloc(R.cur_num * sizeof(int));
+    ID2V.z = (int*)malloc(S.cur_num * sizeof(int));
+    Rout.init(R.cur_num);
+    Sout.init(S.cur_num);
+
+    int cnt = -1;
+    unordered_map<int, int> m;
+    m.reserve(R.cur_num + S.cur_num);
+    for (int i = 0; i < R.cur_num; i++) {
+        auto tmp = m.find(R.data[i].second);
+        if (tmp == m.end()) {
+            cnt++;
+            m[R.data[i].second] = cnt;
+            Rout.data[i].second = cnt;
+        }
+        else {
+            Rout.data[i].second = tmp->second;
+        }
+    }
+    int t = 0;
+    for (int i = 0; i < S.cur_num; i++) {
+        auto tmp = m.find(S.data[i].second);
+        if (tmp != m.end()) {
+            Sout.data[t] = { S.data[i].first,tmp->second };
+            t++;
+        }
+    }
+    Rout.cur_num = R.cur_num;
+    Sout.cur_num = t;
+    ymax = cnt;
+
+    cnt = -1;
+    m.clear();
+    for (int i = 0; i < Rout.cur_num; i++) {
+        auto tmp = m.find(R.data[i].first);
+        if (tmp == m.end()) {
+            cnt++;
+            m[R.data[i].first] = cnt;
+            Rout.data[i].first = cnt;
+        }
+        else {
+            Rout.data[i].first = tmp->second;
+        }
+    }
+    xmax = cnt;
+    for (auto& i : m) ID2V.x[i.second] = i.first;
+
+    cnt = -1;
+    m.clear();
+    for (int i = 0; i < Sout.cur_num; i++) {
+        auto tmp = m.find(Sout.data[i].first);
+        if (tmp == m.end()) {
+            cnt++;
+            m[Sout.data[i].first] = cnt;
+            Sout.data[i].first = cnt;
+        }
+        else {
+            Sout.data[i].first = tmp->second;
+        }
+    }
+    zmax = cnt;
+    for (auto& i : m) ID2V.z[i.second] = i.first;
+
+    ID2V.x = (int*)realloc(ID2V.x, (xmax + 1) * sizeof(int));
+    ID2V.z = (int*)realloc(ID2V.z, (zmax + 1) * sizeof(int));
+}
+
+void gen_rand_data(
+        myvector<pair<int, int>>& R, myvector<pair<int, int>>& S,
+        int nR = 1e7, int nS = 1e7,
+        int MODX = 1e6, int MODY = 1e6, int MODZ = 1e6,
+        int seed = 492) {
+    
+    R.clear();
+    S.clear();
+
+    default_random_engine random_engine(seed);
+    for (int i = 0; i < nR; i++) R.push_back({ random_engine() % MODX,random_engine() % MODY });
+    for (int i = 0; i < nS; i++) S.push_back({ random_engine() % MODZ,random_engine() % MODY });
+}
