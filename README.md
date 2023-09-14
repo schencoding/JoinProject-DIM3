@@ -49,3 +49,11 @@ For parallel version,
 ./main_parallel
 ```
 The `THREAD_NUM` is defined in `dim3_parallel.hpp`.
+
+## Baselines
+We have three baselines in our paper: "Classical", "Gemm(MKL)", and "DHK". The first two baselines can be build by
+```
+make baseline_Classical
+make baseline_GEMM # Intel MKL needed
+```
+For "DHK", we obtained the code from the original author of that paper. Therefore, we do not have the right to make it open source in our repo.
