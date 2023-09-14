@@ -11,8 +11,9 @@ myvector<pair<int, int>> result;
 int main(int argc, char* argv[]) {
     // Note: We can't use the default parameters here 
     // because that's a relatively sparse dataset and 
-    // would result in an oversized matrix!!
+    // would result in oversized matrices!
     gen_rand_data(R,S,1e7,1e7,1e4,1e4,1e4); 
+    printf("Note that a different dataset is used here.\n");
     result.clear();
 
     chrono::high_resolution_clock::time_point startTime = chrono::high_resolution_clock::now();
