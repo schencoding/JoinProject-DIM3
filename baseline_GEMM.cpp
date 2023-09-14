@@ -9,7 +9,10 @@ myvector<pair<int, int>> R, S;
 myvector<pair<int, int>> result;
 
 int main(int argc, char* argv[]) {
-    gen_rand_data(R,S);
+    // Note: We can't use the default parameters here 
+    // because that's a relatively sparse dataset and 
+    // would result in an oversized matrix!!
+    gen_rand_data(R,S,1e7,1e7,1e4,1e4,1e4); 
     result.clear();
 
     chrono::high_resolution_clock::time_point startTime = chrono::high_resolution_clock::now();
