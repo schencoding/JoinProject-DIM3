@@ -14,7 +14,6 @@ int main(int argc, char* argv[]) {
     // would result in oversized matrices!
     gen_rand_data(R,S,1e7,1e7,1e4,1e4,1e4); 
     printf("Note that a different dataset is used here.\n");
-    result.clear();
 
     chrono::high_resolution_clock::time_point startTime = chrono::high_resolution_clock::now();
 
@@ -57,7 +56,7 @@ int main(int argc, char* argv[]) {
         n, m, k, 1.0, A, k, 0, B, m, 0, 0.0, C, m, &oc);
 
     result.clear();
-    result.reserve(OUT_J_hat);
+    result.reserve(min(OUT_J_hat,(long long)n*m));
     int ii = 0;
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < m; j++) {
