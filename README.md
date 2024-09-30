@@ -50,6 +50,11 @@ For parallel version,
 ```
 The `THREAD_NUM` is defined in `dim3_parallel.hpp`.
 
+For Join-Aggregate:
+```
+./join_aggregate
+```
+
 ## Baselines
 We have three baselines in our paper: "Classical", "Gemm(MKL)", and "DHK". The first two baselines can be build by
 ```
