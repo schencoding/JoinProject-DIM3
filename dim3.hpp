@@ -14,6 +14,21 @@
 
 using namespace std;
 
+template <typename _Tx, typename _Ty, typename _Tv>
+struct TUPLE
+{
+    _Tx x;
+    _Ty y;
+    _Tv v;
+    TUPLE(_Tx x_, _Ty y_, _Tv v_) : x(x_), y(y_), v(v_) {}
+    FORCE_INLINE TUPLE<_Tx,_Ty,_Tv>& operator=(const TUPLE<_Tx, _Ty, _Tv>& new_val) {
+        x = new_val.x;
+        y = new_val.y;
+        v = new_val.v;
+        return *this;
+    }
+};
+
 //===============================================
 /*
 * Threshold functions 
@@ -199,6 +214,40 @@ public:
             hash_map.set_hash_shr_bits(0);
             for (int i = 0; i < 1000; i++) hash_map[R.data[i].second]++;
             for (int i = 0; i < 1000; i++) result += hash_map[S.data[i].second];
+            return result * ((double)R.size() / 1e3) * ((double)S.size() / 1e3);
+        }
+
+        return result << sample_bits;
+    }
+
+    template <typename _Tv>
+    static LL estimate(const myvector<TUPLE<_Tx, _Ty, _Tv>, _Tcounter> R, const myvector<TUPLE<_Tz, _Ty, _Tv>, _Tcounter> S) {
+        assert(R.size() >= S.size());
+
+        const int sample_bits = cal_sample_bits(S.size());
+        const int sample_mask = (1 << sample_bits) - 1;
+        _H hash;
+        ska::flat_hash_map<_Ty, _Tcounter, _H> hash_map;
+        hash_map.reserve(base_sample_size);
+        hash_map.set_hash_shr_bits(sample_bits);
+        for (int i = 0, _i = S.size(); i < _i; i++) {
+            if ((hash(S.data[i].y) & sample_mask) == 0) {
+                hash_map[S.data[i].y]++;
+            }
+        }
+
+        LL result = 0;
+        for (int i = 0, _i = R.size(); i < _i; i++) {
+            if ((hash(R.data[i].y) & sample_mask) == 0) {
+                result += hash_map[R.data[i].y];
+            }
+        }
+
+        if (result == 0) {
+            hash_map.clear();
+            hash_map.set_hash_shr_bits(0);
+            for (int i = 0; i < 1000; i++) hash_map[R.data[i].y]++;
+            for (int i = 0; i < 1000; i++) result += hash_map[S.data[i].y];
             return result * ((double)R.size() / 1e3) * ((double)S.size() / 1e3);
         }
 
@@ -402,6 +451,65 @@ public:
         free(psumS);
     }
 
+    template <typename _Tv>
+    static void mapping(const myvector<TUPLE<_Tx, _Ty, _Tv>, _Tcounter> R,
+        const myvector<TUPLE<_Tz, _Ty, _Tv>, _Tcounter> S,
+        ID2VALUE<_Tx, /*_Ty,*/ _Tz>& ID2V,
+        myvector<TUPLE<int, int, _Tv>, _Tcounter>& Rout,
+        myvector<TUPLE<int, int, _Tv>, _Tcounter>& Sout,
+        int& xmax, int& ymax, int& zmax) {
+
+        const unsigned int partition_target_size = max((unsigned int)(4 * __L2cache_size / sizeof(TUPLE<_Tx, _Ty, _Tv>)), __partition_para);
+        const int partition_bits = (int)ceil(log2(max(max(R.cur_num, S.cur_num), (partition_target_size << 1)) / partition_target_size));//TODO
+        assert(partition_bits < 30);
+        const int partition_size = 1 << partition_bits;
+        const _Tcounter nR = R.cur_num;
+        _Tcounter nS = S.cur_num;
+        _Tcounter* hist, * psumR, * psumS;
+        TUPLE<_Tx, int, _Tv>* R_t;
+        TUPLE<_Tz, int, _Tv>* S_t;
+        _Hx hasherx;
+        _Hy hashery;
+        _Hz hasherz;
+
+        hist = (_Tcounter*)malloc((partition_size + 1) * sizeof(_Tcounter));
+        psumR = (_Tcounter*)malloc((partition_size + 1) * sizeof(_Tcounter));
+        psumS = (_Tcounter*)malloc((partition_size + 1) * sizeof(_Tcounter));
+        if (hist == NULL || psumR == NULL || psumS == NULL) {
+            printf("Fail to malloc hist/psumR/psumS in mapping, it seens that they need %fG memory.\n",
+                3 * (LL)(partition_size + 1) * sizeof(_Tcounter) / 1073741824.0);
+            exit(-1);
+        }
+
+        //mapping R.y & S.y
+        TUPLE<_Tx, _Ty, _Tv>* pR = partition_y(R.data, hist, psumR, nR, partition_size, hashery);
+        TUPLE<_Tz, _Ty, _Tv>* pS = partition_y(S.data, hist, psumS, nS, partition_size, hashery);
+        mapping_y(pR, pS, psumR, psumS, nR, nS, partition_bits, hashery, /*ID2V.y,*/ ymax, R_t, S_t);
+
+        if (nR == 0 || nS == 0) {
+            Rout.cur_num = Sout.cur_num = 0;
+            return;
+        }
+
+        //mapping R.x
+        partition_xz(R_t, hist, psumR, nR, partition_size, hasherx);
+        mapping_xz(R_t, psumR, nR, partition_bits, hasherx, ID2V.x, xmax, Rout.data);
+        Rout.cur_num = Rout.max_num = nR;
+
+        //mapping S.z
+        partition_xz(S_t, hist, psumS, nS, partition_size, hasherz);
+        mapping_xz(S_t, psumS, nS, partition_bits, hasherz, ID2V.z, zmax, Sout.data);
+        Sout.cur_num = Sout.max_num = nS;
+
+        free(pR);
+        free(pS);
+        free(R_t);
+        free(S_t);
+        free(hist);
+        free(psumR);
+        free(psumS);
+    }
+
     static void mapping(const myvector<pair<int, int>, _Tcounter> R,
         const myvector<pair<int, int>, _Tcounter> S,
         ID2VALUE<int, /*_Ty,*/ int>& ID2V,
@@ -519,6 +627,40 @@ private:
         free(V_p);
     }
 
+    template <typename _Ta, typename _Tb, typename _Tv, typename _H>
+    static void partition_xz(TUPLE<_Ta, _Tb, _Tv>* V,
+        _Tcounter* hist, _Tcounter* psum,
+        const _Tcounter nV, const int partition_size, const _H hasher) {
+
+        const int partition_mask = partition_size - 1;
+
+        memset(hist, 0, partition_size * sizeof(_Tcounter));
+        for (_Tcounter i = 0; i < nV; i++) {
+            hist[hasher(V[i].x) & partition_mask]++;
+        }
+
+        psum[0] = 0;
+        for (int i = 1; i < partition_size; i++) {
+            psum[i] = psum[i - 1] + hist[i - 1];
+        }
+        psum[partition_size] = psum[partition_size - 1] + hist[partition_size - 1];
+        assert(psum[partition_size] == nV);
+        memcpy(hist, psum, (partition_size + 1) * sizeof(_Tcounter));
+
+        TUPLE<_Ta, _Tb, _Tv>* V_p = (TUPLE<_Ta, _Tb, _Tv>*)malloc(nV * sizeof(TUPLE<_Ta, _Tb, _Tv>));
+        if (V_p == NULL) {
+            printf("Fail to malloc V_p in partition_xz.\n");
+            exit(-1);
+        }
+
+        for (_Tcounter i = 0; i < nV; i++) {
+            V_p[hist[hasher(V[i].x) & partition_mask]++] = V[i];
+        }
+
+        memcpy(V, V_p, nV * sizeof(TUPLE<_Ta, _Tb, _Tv>));
+        free(V_p);
+    }
+
     template <typename _Ta, typename _Tb,typename _H >
     static pair<_Ta, _Tb>* partition_y(const pair<_Ta, _Tb>* V,
         _Tcounter* hist, _Tcounter* psum,
@@ -552,6 +694,39 @@ private:
         return V_p;
     }
 
+    template <typename _Ta, typename _Tb, typename _Tv, typename _H >
+    static TUPLE<_Ta, _Tb, _Tv>* partition_y(const TUPLE<_Ta, _Tb, _Tv>* V,
+        _Tcounter* hist, _Tcounter* psum,
+        const _Tcounter nV, const int partition_size, const _H hasher) {
+
+        const int partition_mask = partition_size - 1;
+
+        memset(hist, 0, partition_size * sizeof(_Tcounter));
+        for (_Tcounter i = 0; i < nV; i++) {
+            hist[hasher(V[i].y) & partition_mask]++;
+        }
+
+        psum[0] = 0;
+        for (int i = 1; i < partition_size; i++) {
+            psum[i] = psum[i - 1] + hist[i - 1];
+        }
+        psum[partition_size] = psum[partition_size - 1] + hist[partition_size - 1];
+        assert(psum[partition_size] == nV);
+        memcpy(hist, psum, (partition_size + 1) * sizeof(_Tcounter));
+
+        TUPLE<_Ta, _Tb, _Tv>* V_p = (TUPLE<_Ta, _Tb, _Tv>*)malloc(nV * sizeof(TUPLE<_Ta, _Tb, _Tv>));
+        if (V_p == NULL) {
+            printf("Fail to malloc V_p in partition_y.\n");
+            exit(-1);
+        }
+
+        for (_Tcounter i = 0; i < nV; i++) {
+            V_p[hist[hasher(V[i].y) & partition_mask]++] = V[i];
+        }
+
+        return V_p;
+    }
+
     template <typename _Ta, typename _H>
     static void mapping_xz(const pair<_Ta, int>* V, const _Tcounter* psum,
         const _Tcounter nV, const int partition_bits, const _H hasher,
@@ -572,6 +747,37 @@ private:
                 Vout[j].first = hashmap.insert(V[j].first, id2v);
                 Vout[j].second = V[j].second;
                 //Vout[j] = { hashmap.insert(V[j].first , id2v) ,V[j].second };
+            }
+        }
+        id2v = (_Ta*)realloc(id2v, hashmap.size() * sizeof(_Ta));
+        if (id2v == NULL) {
+            printf("Fail to realloc id2v in mapping_xz.\n");
+            exit(-1);
+        }
+        the_max = hashmap.size() - 1;
+    }
+
+    template <typename _Ta, typename _Tv, typename _H>
+    static void mapping_xz(const TUPLE<_Ta, int,_Tv>* V, const _Tcounter* psum,
+        const _Tcounter nV, const int partition_bits, const _H hasher,
+        _Ta*& id2v, int& the_max, TUPLE<int, int, _Tv>*& Vout) {
+
+        const int partition_size = 1 << partition_bits;
+        LS_mapper<_Ta, _H> hashmap(psum[1] - psum[0], partition_bits, 16384 / 4);
+        id2v = (_Ta*)malloc(nV * sizeof(_Ta));
+        Vout = (TUPLE<int, int, _Tv>*)malloc(nV * sizeof(TUPLE<int, int, _Tv>));
+        if (id2v == NULL || Vout == NULL) {
+            printf("Fail to malloc id2v/Vout in mapping_xz.\n");
+            exit(-1);
+        }
+
+        for (int i = 0; i < partition_size; i++) {
+            hashmap.clear();
+            for (_Tcounter j = psum[i], _j = psum[i + 1]; j < _j; j++) {
+                Vout[j].x = hashmap.insert(V[j].x, id2v);
+                Vout[j].y = V[j].y;
+                Vout[j].v = V[j].v;
+                //Vout[j] = { hashmap.insert(V[j].x , id2v), V[j].y, V[j].v };
             }
         }
         id2v = (_Ta*)realloc(id2v, hashmap.size() * sizeof(_Ta));
@@ -626,6 +832,51 @@ private:
         n2 = v2cnt;
     }
 
+    template <typename _Ta, typename _Tb, typename _Tc, typename _Tv, typename _H>
+    static void mapping_y(const TUPLE<_Ta, _Tb, _Tv>* V1, const TUPLE<_Tc, _Tb, _Tv>* V2,
+        const _Tcounter* psum1, const _Tcounter* psum2,
+        const _Tcounter n1, _Tcounter& n2,
+        const int partition_bits, const _H hasher,
+        /*IMDBstring*& id2v,*/ int& the_max,
+        TUPLE<_Ta, int, _Tv>*& V1out, TUPLE<_Tc, int, _Tv>*& V2out) {
+
+        const int partition_size = 1 << partition_bits;
+        LS_mapper<_Tb, _H> hashmap(psum1[1] - psum1[0], partition_bits, 16384 / 4);
+        _Tcounter v2cnt = 0;
+        //id2v = (IMDBstring*)malloc(n1 * sizeof(IMDBstring));
+        V1out = (TUPLE<_Ta, int, _Tv>*)malloc(n1 * sizeof(TUPLE<_Ta, int, _Tv>));
+        V2out = (TUPLE<_Tc, int, _Tv>*)malloc(n2 * sizeof(TUPLE<_Tc, int, _Tv>));
+        if (/*id2v == NULL || */V1out == NULL || V2out == NULL) {
+            printf("Fail to malloc V1out/V2out in mapping_y.\n");
+            exit(-1);
+        }
+
+        for (int i = 0; i < partition_size; i++) {
+            hashmap.clear();
+            for (_Tcounter j = psum1[i], _j = psum1[i + 1]; j < _j; j++) {
+                V1out[j].x = V1[j].x;
+                V1out[j].y = hashmap.insert(V1[j].y /*, id2v*/);
+                V1out[j].v = V1[j].v;
+                //V1out[j] = { V1[j].x, hashmap.insert(V1[j].y /*, id2v*/), V1[j].v };
+            }
+
+            for (_Tcounter j = psum2[i], _j = psum2[i + 1]; j < _j; j++) {
+                int t = hashmap.find(V2[j].y);
+                if (t != -1) {
+                    V2out[v2cnt].x = V2[j].x;
+                    V2out[v2cnt].y = t;
+                    V2out[v2cnt].v = V2[j].v;
+                    v2cnt++;
+                    //V2out[v2cnt++] = { V2[j].x, t, V2[j].v };
+                }
+            }
+        }
+
+        //id2v = (IMDBstring*)realloc(id2v, hashmap.size() * sizeof(IMDBstring));
+        //if (id2v == NULL) exit(-1);
+        the_max = hashmap.size() - 1;
+        n2 = v2cnt;
+    }
 };
 
 
@@ -1005,6 +1256,227 @@ protected:
     }
 };
 
+
+//===============================================
+/*
+* DIM3 for Join-Aggregate
+*/
+template <typename _Tx, /*typename _Ty,*/ typename _Tz, typename _Tv, typename _Aggregate_type, typename _Tcounter = uint32_t>
+struct SpmmAggregate
+{
+public:
+    void operator()(CSR<_Tv>& R_all, CSR<_Tv>& S_sparse, ID2VALUE<_Tx, _Tz>& ID2V,
+        const int nx, const int ny, const int nz,
+        myvector<TUPLE<_Tx, _Tz, _Tv>, _Tcounter>& result) {
+
+        _Aggregate_type aggregate_function(nz);
+        int* SPAw = (int*)malloc(nz * sizeof(int));
+        myvector<int> SPA_list;
+        SPA_list.fixSize(nz);
+        if (SPAw == NULL) {
+            printf("Fail to malloc SPA in SPMM_Agg, it seens that they need %fG memory.\n",
+                ((LL)nz * sizeof(int)) / 1073741824.0);
+            exit(-1);
+        }
+        memset(SPAw, -1, nz * sizeof(int));
+
+        for (int cur_x = 0; cur_x < nx; cur_x++) {
+            _Tx origin_x_val = ID2V.x[cur_x];
+            SPA_list.clear();
+            for (int i = R_all.JR[cur_x], _i = R_all.JR[cur_x + 1]; i < _i; i++) {
+                int cur_y = R_all.IC[i];
+                for (int j = S_sparse.JR[cur_y], _j = S_sparse.JR[cur_y + 1]; j < _j; j++) {
+                    int cur_z = S_sparse.IC[j];
+                    if (SPAw[cur_z] != cur_x) {
+                        SPAw[cur_z] = cur_x;
+                        aggregate_function.insert(cur_z, R_all.VAL[i], S_sparse.VAL[j]);
+                        SPA_list.push_back(cur_z);
+                    }
+                    else {
+                        aggregate_function.update(cur_z, R_all.VAL[i], S_sparse.VAL[j]);
+                    }
+                }
+            }
+            for (int i = 0, _i = SPA_list.cur_num; i < _i; i++) {
+                int cur_z = SPA_list.data[i];
+                result.push_back({ origin_x_val, ID2V.z[cur_z], aggregate_function.get(cur_z) });
+            }
+        }
+        free(SPAw);
+        free(SPA_list.data);
+    }
+};
+
+template <typename _Tx, typename _Ty, typename _Tz, typename _Tv, typename _Aggregate_type,
+    typename _Hx = hash<_Tx>, typename _Hy = hash<_Ty>, typename _Hz = hash<_Tz>,
+    typename _Hxz = hash<pair<_Tx, _Tz>>, typename _Tcounter = uint32_t>
+struct DIM3JoinAggregate {
+public:
+    static void doJoinAggregate(myvector<TUPLE<_Tx, _Ty, _Tv>, _Tcounter>& _R,
+        myvector<TUPLE<_Tz, _Ty, _Tv>, _Tcounter>& _S,
+        myvector<TUPLE<_Tx, _Tz, _Tv>, _Tcounter>& result) {
+        chrono::high_resolution_clock::time_point startTime = chrono::high_resolution_clock::now();
+
+        result.clear();
+        myvector<TUPLE<_Tx, _Tz, _Tv>, _Tcounter> R,S;
+        if (_R.size()>=_S.size()) {R=_R;S=_S;}
+        else {R=_S;S=_R;}
+        // R larger
+
+        LL OUT_J_hat = EstimateJoinCardinality<_Tx, _Ty, _Tz, _Hy, _Tcounter>::estimate(R, S);
+        // cout << "[T] EstimateJoinCardinality takes: " << chrono::duration<double, std::ratio<1, 1>>(chrono::high_resolution_clock::now() - startTime).count() << " seconds" << endl;
+        // cout << "[i] OUT_J_hat= " << OUT_J_hat << endl;
+
+        int n, k, m;
+        int xmax, ymax, zmax;
+        S_DENSE S_dense;
+        CSR<_Tv> S_sparse;
+        CSR<_Tv> R_all;
+
+        ID2VALUE<_Tx, _Tz> ID2V;
+        myvector<TUPLE<int, int, _Tv>> Rm, Sm;
+
+        mapping_step<_Tx, _Ty, _Tz, _Hx, _Hy, _Hz>::mapping(R, S, ID2V, Rm, Sm, xmax, ymax, zmax);
+
+        // cout << "[T] Mapping takes: " << chrono::duration<double, std::ratio<1, 1>>(chrono::high_resolution_clock::now() - startTime).count() << " seconds" << endl;
+        // cout << "[i] |Rm|=" << R.cur_num << " |Sm|=" << S.cur_num << endl;
+
+        n = xmax + 1;
+        k = ymax + 1;
+        m = zmax + 1;
+        // cout << "[i] n=" << n << " k=" << k << " m=" << m << endl;
+
+        divide_R(Rm, n, R_all);
+        divide_S(Sm, n, k, m, R_all, S_dense, S_sparse);
+
+        free(Rm.data);
+        free(Sm.data);
+
+        // cout << "[T] Divide takes: " << chrono::duration<double, std::ratio<1, 1>>(chrono::high_resolution_clock::now() - startTime).count() << " seconds" << endl;
+
+        result.reserve((_Tcounter)min(OUT_J_hat, (LL)n * m));
+        SpmmAggregate<_Tx, _Tz, _Tv, _Aggregate_type, _Tcounter> spmm_aggregate;
+        spmm_aggregate(R_all, S_sparse, ID2V, n, k, m, result);
+
+        free(S_sparse.JR);
+        free(S_sparse.IC);
+        free(S_sparse.VAL);
+        free(R_all.JR);
+        free(R_all.IC);
+        free(R_all.VAL);
+
+        // cout << "[T] ALL takes: " << chrono::duration<double, std::ratio<1, 1>>(chrono::high_resolution_clock::now() - startTime).count() << " seconds" << endl;
+        // cout << "[O] |OUT|=" << result.cur_num << endl;
+    }
+
+private:
+    static void divide_R(const myvector<TUPLE<int, int, _Tv>> V, const int nx, CSR<_Tv>& R_all) {
+        int nV = V.cur_num;
+        R_all.JR = (int*)malloc((nx + 1) * sizeof(int));
+        int* JRt = (int*)malloc((nx + 1) * sizeof(int));
+        R_all.IC = (int*)malloc(nV * sizeof(int));
+        R_all.VAL = (_Tv*)malloc(nV * sizeof(_Tv));
+        if (R_all.JR == NULL || JRt == NULL || R_all.IC == NULL || R_all.VAL == NULL) {
+            printf("Fail to malloc R_all.JR/JRt/R_all.IC in divide_R, it seens that they need %fG memory.\n",
+                (2 * (LL)(nx + 1) * sizeof(int) + (LL)nV * sizeof(int) + (LL)nV * sizeof(_Tv)) / 1073741824.0);
+            exit(-1);
+        }
+        memset(JRt, 0, (nx + 1) * sizeof(int));
+
+        for (int i = 0; i < nV; i++) {
+            JRt[V.data[i].x]++;
+        }
+
+        R_all.JR[0] = 0;
+        for (int i = 1; i < nx; i++) {
+            R_all.JR[i] = R_all.JR[i - 1] + JRt[i - 1];
+        }
+        R_all.JR[nx] = R_all.JR[nx - 1] + JRt[nx - 1];
+        assert(R_all.JR[nx] == nV);
+        memcpy(JRt, R_all.JR, (nx + 1) * sizeof(int));
+
+        for (int i = 0; i < nV; i++) {
+            R_all.IC[JRt[V.data[i].x]] = V.data[i].y;
+            R_all.VAL[JRt[V.data[i].x]] = V.data[i].v;
+            JRt[V.data[i].x]++;
+        }
+
+        free(JRt);
+    }
+
+    static void divide_S(myvector<TUPLE<int, int, _Tv>> V, const int nx, const int ny, const int nz, const CSR<_Tv> R_all, S_DENSE& S_dense, CSR<_Tv>& S_sparse, double pthreshold = 0.02) {
+        const int nV = V.cur_num;
+        int* JRt = NULL;
+
+        S_dense.size = 0;
+        S_dense.dense_bitvector_len = 0;
+        S_dense.id2v = NULL;
+        S_dense.id2cnt = NULL;
+        S_dense.data = NULL;
+
+        S_sparse.JR = (int*)malloc((ny + 1) * sizeof(int));
+        S_sparse.IC = (int*)malloc(nV * sizeof(int));
+        S_sparse.VAL = (_Tv*)malloc(nV * sizeof(_Tv));
+        JRt = (int*)malloc((ny + 1) * sizeof(int));
+        if (S_sparse.JR == NULL || S_sparse.IC == NULL || S_sparse.VAL == NULL || JRt == NULL) {
+            printf("Fail to malloc S_sparse.JR/JRt/S_sparse.JR in divide_S, it seens that they need %fG memory.\n",
+                (2 * (LL)(ny + 1) * sizeof(int) + (LL)nV * sizeof(int) + (LL)nV * sizeof(_Tv)) / 1073741824.0);
+            exit(-1);
+        }
+        memset(JRt, 0, (ny + 1) * sizeof(int));
+
+        for (int i = 0; i < nV; i++) {
+            JRt[V.data[i].y]++;
+        }
+
+        S_sparse.JR[0] = 0;
+        for (int i = 1; i < ny; i++) {
+            S_sparse.JR[i] = S_sparse.JR[i - 1] + JRt[i - 1];
+        }
+        S_sparse.JR[ny] = S_sparse.JR[ny - 1] + JRt[ny - 1];
+        assert(S_sparse.JR[ny] == nV);
+        memcpy(JRt, S_sparse.JR, (ny + 1) * sizeof(int));
+
+        for (int i = 0; i < nV; i++) {
+            S_sparse.IC[JRt[V.data[i].y]] = V.data[i].x;
+            S_sparse.VAL[JRt[V.data[i].y]] = V.data[i].v;
+            JRt[V.data[i].y]++;
+        }
+
+        free(JRt);
+    }
+};
+
+template <typename _Tv>
+struct AggregateFunctionAvg {
+private:
+    pair<_Tv, int>* SPAv;
+public:
+    AggregateFunctionAvg(int len) {
+        SPAv = (pair<_Tv, int>*)malloc(len * sizeof(pair<_Tv, int>));
+        if (SPAv == NULL) {
+            printf("Fail to malloc SPAv in Aggregate_Strategy, it seens that they need %fG memory.\n",
+                ((LL)len * sizeof(pair<_Tv, int>)) / 1073741824.0);
+            exit(-1);
+        }
+    }
+    ~AggregateFunctionAvg() {
+        free(SPAv);
+    }
+    FORCE_INLINE void insert(const int key, const _Tv val1, const _Tv val2) {
+        SPAv[key].first = val1 + val2;
+        SPAv[key].second = 1;
+    }
+    FORCE_INLINE void update(const int key, const _Tv val1, const _Tv val2) {
+        SPAv[key].first += val1 + val2;
+        SPAv[key].second++;
+    }
+    FORCE_INLINE _Tv get(const int key) const {
+        return SPAv[key].first / SPAv[key].second;
+    }
+};
+
+
 void baseline_mapping(const myvector<pair<int, int>> R, const myvector<pair<int, int>> S,
     ID2VALUE<int, int>& ID2V,
     myvector<pair<int, int>>& Rout,
@@ -1090,4 +1562,27 @@ void gen_rand_data(
     default_random_engine random_engine(seed);
     for (int i = 0; i < nR; i++) R.push_back({ random_engine() % MODX,random_engine() % MODY });
     for (int i = 0; i < nS; i++) S.push_back({ random_engine() % MODZ,random_engine() % MODY });
+}
+
+void gen_rand_data(
+        myvector<TUPLE<int, int, float>>& R, myvector<TUPLE<int, int, float>>& S,
+        int nR = 1e7, int nS = 1e7,
+        int MODX = 1e6, int MODY = 1e6, int MODZ = 1e6,
+        int seed = 492) {
+    
+    R.clear();
+    S.clear();
+
+    default_random_engine random_engine(seed);
+    for (int i = 0; i < nR; i++) {
+        int x=random_engine() % MODX;
+        int y=random_engine() % MODY;
+        R.push_back(TUPLE<int, int, float>(x,y,i));
+    }
+    for (int i = 0; i < nS; i++)
+    {
+        int z=random_engine() % MODZ;
+        int y=random_engine() % MODY;
+        S.push_back(TUPLE<int, int, float>(z,y,i));
+    }
 }
