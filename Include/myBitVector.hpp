@@ -1,3 +1,6 @@
+// Copyright (c) 2021-2023 Institute of Computing Technology, Chinese Academy of Sciences
+// DIM3 is licensed under Mulan PSL v2.
+
 #pragma once
 
 template<typename _T = int>
