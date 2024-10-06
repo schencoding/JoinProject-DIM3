@@ -1,3 +1,6 @@
+// Copyright (c) 2021-2023 Institute of Computing Technology, Chinese Academy of Sciences
+// DIM3 is licensed under Mulan PSL v2.
+
 #include"dim3.hpp"
 #include<mkl.h>
 
